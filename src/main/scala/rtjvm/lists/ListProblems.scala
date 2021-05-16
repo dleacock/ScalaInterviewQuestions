@@ -27,6 +27,8 @@ sealed abstract class RList[+T] {
   def flatMap[S](f: T => RList[S]): RList[S]
 
   def filter(f: T => Boolean): RList[T]
+
+  def rle: RList[(T, Int)]
 }
 
 // Since RList is covariance => a list[nothing] is a good substitute for a list[ints]
@@ -54,6 +56,8 @@ case object RNil extends RList[Nothing] {
   override def flatMap[S](f: Nothing => RList[S]): RList[S] = this
 
   override def filter(f: Nothing => Boolean): RList[Nothing] = this
+
+  override def rle: RList[(Nothing, Int)] = RNil
 }
 
 case class ::[+T](override val head: T, override val tail: RList[T]) extends RList[T] {
@@ -153,6 +157,18 @@ case class ::[+T](override val head: T, override val tail: RList[T]) extends RLi
 
     s"[${recursiveToString(this, "")}]"
   }
+
+  override def rle: RList[(T, Int)] = {
+    @tailrec
+    def rleTailRec(remaining: RList[T], current: (T, Int), acc: RList[(T, Int)]): RList[(T, Int)] = {
+      if (remaining.isEmpty && current._2 == 0) acc
+      else if (remaining.isEmpty) current :: acc
+      else if (remaining.head == current._1) rleTailRec(remaining.tail, current.copy(_2 = current._2 + 1), acc)
+      else rleTailRec(remaining.tail, (remaining.head, 1), current :: acc)
+    }
+
+    rleTailRec(this.tail, (this.head, 1), RNil).reverse
+  }
 }
 
 object RList {
@@ -190,4 +206,7 @@ object ListProblems extends App {
 
   println(smallList.map(x => List(x, x + 1)))
   println(smallList.flatMap(x => x :: x + 1 :: RNil))
+
+  private val encodeList: RList[Int] = 1 :: 1 :: 1 :: 2 :: 2 :: 3 :: 3 :: 2 :: 2 :: 4 :: RNil
+  println(encodeList.rle)
 }
